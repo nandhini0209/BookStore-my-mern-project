@@ -5,7 +5,7 @@
 
 import { seedUsers, seedBooks, seedOrders, seedReviews } from './seedData';
 
-const DB_KEY = 'bookstore_db_v1';
+const DB_KEY = 'bookstore_db_v2';
 
 function getDB() {
   const raw = localStorage.getItem(DB_KEY);
@@ -34,11 +34,13 @@ function genId(prefix) {
 
 // Simple hash for demo only. The real backend uses bcryptjs.
 function fakeHash(password) {
-  return `$2a$10$demo${btoa(password)}`;
+  return `demo:${btoa(password)}`;
 }
 function fakeCompare(password, hash) {
   if (!hash) return false;
-  if (hash.startsWith('$2a$10$demo')) return atob(hash.slice(10)) === password;
+  if (hash.startsWith('demo:')) {
+    try { return atob(hash.slice(5)) === password; } catch { return false; }
+  }
   return false;
 }
 
@@ -84,7 +86,12 @@ export const mockApi = {
   async getProfile(token) {
     await delay();
     if (!token) throw { response: { status: 401, data: { message: 'Not authorized' } } };
-    const payload = JSON.parse(atob(token));
+    let payload;
+    try {
+      payload = JSON.parse(atob(token));
+    } catch {
+      throw { response: { status: 401, data: { message: 'Invalid token' } } };
+    }
     const db = getDB();
     const user = db.users.find((u) => u._id === payload.id);
     if (!user) throw { response: { status: 404, data: { message: 'User not found' } } };
@@ -181,7 +188,8 @@ export const mockApi = {
     await delay();
     if (!token) throw { response: { status: 401, data: { message: 'Not authorized' } } };
     const db = getDB();
-    const payload = JSON.parse(atob(token));
+    let payload;
+    try { payload = JSON.parse(atob(token)); } catch { throw { response: { status: 401, data: { message: 'Invalid token' } } }; }
     return db.orders.filter((o) => o.userId === payload.id).reverse();
   },
 
@@ -225,7 +233,8 @@ export const mockApi = {
     await delay();
     if (!token) throw { response: { status: 401, data: { message: 'Not authorized' } } };
     const db = getDB();
-    const payload = JSON.parse(atob(token));
+    let payload;
+    try { payload = JSON.parse(atob(token)); } catch { throw { response: { status: 401, data: { message: 'Invalid token' } } }; }
     const user = db.users.find((u) => u._id === payload.id);
     const review = {
       _id: genId('r'),
